@@ -1,6 +1,6 @@
 # Fleet Operations Tool: Product Spec
 
-*Draft 4, 10 October 2026. Status: for review by Fahad. Anything marked OPEN is not yet decided.*
+*Draft 5, 10 October 2026. Status: for review by Fahad. Anything marked OPEN is not yet decided.*
 
 ## 1. Purpose
 
@@ -22,7 +22,7 @@ The product is built for many companies. TCS is the first customer and the pilot
 
 Roles and their permissions are configurable per company. The table below shows the default roles loaded for TCS.
 
-| Role           | Main actions in the pilot                                                                                                                                                                   |
+| Role | Main actions in the pilot |
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Site supervisor    | Submits daily status checkins for machines on site (TCS default)                                                                                                                                |
 | Site technician    | Reports faults with photos, requests parts                                                                                                                                                      |
@@ -44,11 +44,12 @@ Who submits the daily status checkin is a permission the company admin assigns, 
 - Roles and permissions stored in tables. TCS defaults loaded at setup, then managed through the admin editors (4.9).
 
 ### 4.2 Machine register
-- Seeded from the cleaned TCS asset register using the existing import script.
+- Seeded from the TCS register file Main_Data_17-8-25.xlsx (4,247 assets, the layout the job card reads), after cleaning, or a newer copy if one exists. The import script written for the older 3,093 asset file must be updated for this file’s columns.
+- Extra machine details needed for job cards: VIN (from chassis number), engine model and number, colour, Isthimara validity and warranty validity. Most are empty at import and filled in over time.
 - Searchable list and a detail page per machine showing latest status, open faults and open parts requests.
 
 ### 4.3 Daily status checkin
-- A quick status per machine. TCS values: Working on hire, Idle in yard, Under repair, Broken down on site. Status values are configurable per company.
+- A quick status per machine. TCS values: Working on hire, Idle in yard, Under repair, Awaiting repair, Broken down on site, Scrapped. Values can be renamed or deactivated later. Status values are configurable per company.
 - Who may submit checkins is a permission assigned by the company admin. TCS default: Supervisor.
 
 ### 4.4 Fault reports
@@ -59,8 +60,11 @@ Who submits the daily status checkin is a permission the company admin assigns, 
 - Photos are compressed on the phone before upload. Voice notes have a maximum length.
 - Location is the reporting phone’s location, captured only with the user’s permission.
 
-### 4.5 Work orders
-- A fault that needs repair becomes a work order. Workshop assigns one or more mechanics.
+### 4.5 Work orders and job cards
+- A fault that needs repair becomes a work order, which replaces the Excel job card. Workshop assigns one or more mechanics.
+- Workshop picks the machine and its details fill in automatically. Job numbers are generated automatically per company, continuing from the current TCS sequence.
+- Each job card records hours and km at the time of the job, the work carried out, spare parts consumed, consumables and sublet jobs, with quantity, unit price and tax. Only a few fields are required.
+- A job card can be printed or saved as a PDF in the current TCS layout, and is sent to Purchase in the app.
 - Workshop updates progress on behalf of mechanics until the work order is closed. Mechanics can be given permission to update their own work orders later. A work order can raise a parts request.
 - Parts requests can also come from periodic maintenance, though this is rare.
 
@@ -92,6 +96,12 @@ Who submits the daily status checkin is a permission the company admin assigns, 
 - Optional minimum level per part, with an in app alert when stock falls below it.
 - Prerequisite: a full physical stock count at the TCS store before inventory goes live. That count becomes the starting stock.
 
+### 4.11 QuickBooks Online link
+- Optional per company. A company admin connects the company’s QuickBooks Online account.
+- Purchase can always type the QuickBooks PO number into the parts request by hand.
+- When connected, purchase orders created, updated or deleted in QuickBooks Online appear in the app automatically. A PO is matched to its parts request by the request number written on the PO.
+- POs that cannot be matched are listed for Purchase to match by hand.
+
 ## 5. TCS parts request workflow
 
 ### 5.1 Normal path
@@ -99,11 +109,11 @@ Who submits the daily status checkin is a permission the company admin assigns, 
 | Stage | Responsible | What happens |
 |-----------------------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1\. Need reported                 | Site technician      | Reports that a part is needed, with a photo (today this is a WhatsApp message)                                                                                             |
-| 2\. Material request              | Workshop             | Raises a material request to Purchase                                                                                                                                      |
+| 2\. Job card and material request | Workshop             | Raises the job card and material request to Purchase                                                                                                                       |
 | 3\. Stock check                   | Purchase with Stores | The app shows live stock for the part                                                                                                                                      |
 | 4a. In stock                      | Purchase and Stores  | The part is issued directly to Workshop without GM approval. The GM is notified immediately inside the app and can put the issue on hold, but it goes ahead unless he acts |
 | 4b. Not in stock                  | Purchase to GM       | Purchase requests approval to buy. GM and Purchase decide which part to buy                                                                                                |
-| 5\. PO raised                     | Purchase             | Raises a PO to the chosen supplier                                                                                                                                         |
+| 5\. PO raised                     | Purchase             | Raises the PO in QuickBooks Online. The PO number is entered in the app, or the PO is linked automatically (4.11)                                                          |
 | 6\. Cash approval (only if cash)  | Purchase to GM       | If the supplier offers no credit terms, Purchase asks the GM to approve a cash purchase                                                                                    |
 | 7\. Funds released (only if cash) | Finance              | Releases funds after GM approval                                                                                                                                           |
 | 8\. Received and inspected        | Purchase             | Part arrives at Purchase and is checked                                                                                                                                    |
@@ -140,7 +150,11 @@ Every table carries company_id. Field level detail comes in the schema design st
 | severity_levels                                  | Configurable severity scale per company                                                  |
 | fault_reports, fault_attachments                 | Faults, plus the file store and path of each photo and voice note                        |
 | parts_catalogue                                  | Known parts, grown from real requests, each with an urgent flag                          |
-| work_orders, work_order_assignments              | Repairs and the mechanics assigned to them                                               |
+| work_orders, work_order_assignments              | Repairs (job cards) and the mechanics assigned to them                                   |
+| work_order_lines                                 | Parts, consumables and sublet jobs on a job card, with quantity, unit price and tax      |
+| meter_readings                                   | Hours and km readings per machine                                                        |
+| purchase_orders                                  | POs entered by hand or received from QuickBooks, linked to parts requests                |
+| integration_connections                          | Each company’s QuickBooks connection details                                             |
 | status_values                                    | Configurable daily status options per company                                            |
 | notifications                                    | Alerts such as the GM being told about a store issue                                     |
 | workflow_versions, workflow_stages               | Versioned stage chains per company                                                       |
@@ -154,7 +168,7 @@ Every table carries company_id. Field level detail comes in the schema design st
 
 ## 7. Technology
 - Frontend: React with Vite, built as a Progressive Web App so submissions can be queued offline. Decided 9 October 2026.
-- Backend: Supabase (Postgres database, login, Row Level Security, file storage, Edge Functions for any server side code).
+- Backend: Supabase (Postgres database, login, Row Level Security, file storage, Edge Functions for server side code, including the QuickBooks connection and incoming QuickBooks notifications).
 - Development: Git and GitHub, VS Code, Claude Code.
 
 ## 8. Out of scope for the pilot
@@ -169,17 +183,21 @@ Every table carries company_id. Field level detail comes in the schema design st
 
 1.  **Timeline.** Admin editors and inventory roughly double the pilot scope. Building in the order in section 11 means the core can be tested before everything is finished.
 
-2.  **Inventory accuracy.** If movements are not recorded every time, stock numbers drift from reality and users stop trusting the app. Needs a starting count and daily discipline at the store.
+2.  **Out of date register.** The register file is dated 17 August 2025. Machines added or moved since then will be missing or wrong at launch.
 
-3.  **Technicians keep using WhatsApp.** This is the biggest risk, because technicians currently report by WhatsApp with a photo. If the fault report screen is not as fast, the pilot fails quietly. Possible fallback: Workshop enters reports on a technician’s behalf during the pilot.
+3.  **QuickBooks matching.** Automatic linking depends on Purchase writing the request number on every PO. Missed numbers create unmatched POs.
 
-4.  **People approve off the app.** If verbal approvals are not recorded, the audit trail becomes incomplete. The urgent path must make recording a verbal approval very quick.
+4.  **Inventory accuracy.** If movements are not recorded every time, stock numbers drift from reality and users stop trusting the app. Needs a starting count and daily discipline at the store.
 
-5.  **Storage costs.** Photos and voice notes may exceed free tier storage. Supabase’s current limits are unverified and must be checked. Real usage from the first weeks of the pilot will show whether moving files is needed.
+5.  **Technicians keep using WhatsApp.** This is the biggest risk, because technicians currently report by WhatsApp with a photo. If the fault report screen is not as fast, the pilot fails quietly. Possible fallback: Workshop enters reports on a technician’s behalf during the pilot.
 
-6.  **Location data and privacy.** Saudi Arabia’s Personal Data Protection Law may set consent requirements for location capture. Not verified; needs checking.
+6.  **People approve off the app.** If verbal approvals are not recorded, the audit trail becomes incomplete. The urgent path must make recording a verbal approval very quick.
 
-7.  **Security mistakes.** Row Level Security policies decide who sees what. Every policy must be reviewed line by line, not accepted unread.
+7.  **Storage costs.** Photos and voice notes may exceed free tier storage. Supabase’s current limits are unverified and must be checked. Real usage from the first weeks of the pilot will show whether moving files is needed.
+
+8.  **Location data and privacy.** Saudi Arabia’s Personal Data Protection Law may set consent requirements for location capture. Not verified; needs checking.
+
+9.  **Security mistakes.** Row Level Security policies decide who sees what. Every policy must be reviewed line by line, not accepted unread.
 
 ## 10. Open questions and notes
 
@@ -189,7 +207,15 @@ Every table carries company_id. Field level detail comes in the schema design st
 
 3.  How many stores does TCS have?
 
-4.  Location capture: check consent requirements under Saudi Arabia’s Personal Data Protection Law before the pilot.
+4.  Is the August 2025 register the latest copy the workshop uses?
+
+5.  Sold and stolen machines: import as inactive history, or leave out?
+
+6.  Should the light vehicles, attachments and Others sheets from the April 2025 file be imported as machines?
+
+7.  TCS tax rate for job card cost lines.
+
+8.  Location capture: check consent requirements under Saudi Arabia’s Personal Data Protection Law before the pilot.
 
 ## 11. Build order (proposed)
 
@@ -203,8 +229,10 @@ Each step is finished and tested before the next starts. Translations and right 
 
 4.  **Parts and stock.** Parts catalogue, stores, stock movements and counts.
 
-5.  **Parts requests.** Versioned workflow, standby, override, urgent path, GM notifications.
+5.  **Parts requests.** Versioned workflow, standby, override, urgent path, GM notifications, manual PO numbers.
 
-6.  **Admin editors.** Screens for every configurable list, including the workflow stage editor.
+6.  **QuickBooks link.** Connection to QuickBooks Online and automatic PO matching.
 
-7.  **Offline queue.** Queued submissions for checkins, fault reports and parts requests.
+7.  **Admin editors.** Screens for every configurable list, including the workflow stage editor.
+
+8.  **Offline queue.** Queued submissions for checkins, fault reports and parts requests.
