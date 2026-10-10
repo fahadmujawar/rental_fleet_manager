@@ -1,0 +1,31 @@
+{
+  "app": {
+    "title": "Fleet Manager",
+    "loading": "Loading…"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ar": "العربية"
+  },
+  "login": {
+    "heading": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "errors": {
+      "invalidCredentials": "Incorrect email or password.",
+      "generic": "Sign in failed. Please try again."
+    }
+  },
+  "home": {
+    "welcome": "Welcome, {{name}}",
+    "company": "Company: {{name}}",
+    "logout": "Log out",
+    "errors": {
+      "profile": "Your profile could not be loaded. Please contact your administrator.",
+      "company": "Your company could not be loaded. Please contact your administrator."
+    }
+  }
+}
