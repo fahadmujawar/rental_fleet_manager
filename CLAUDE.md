@@ -22,3 +22,5 @@ Multi company fleet operations web app for equipment rental companies. TCS is th
 - Values that are in use (roles, severity levels, statuses, stages) are deactivated, never deleted.
 - Never put secrets or keys in code or commit them. They go in a .env file listed in .gitignore.
 - Follow the build order in docs/spec.md section 11. Do not start a later step early.
+- For every validation rule or constraint, list all edge cases first (empty, spaces, tabs and line breaks, case, length, non-English text, duplicates) and handle them in one change, not one at a time.
+- For validation rules, handle the edge cases that cause real problems (blanks, duplicates, case, control characters, length) in one change. Leave cosmetic cases to the app, state that choice in one sentence, and only ask me about decisions with real consequences.
