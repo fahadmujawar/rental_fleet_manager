@@ -15,7 +15,8 @@ Multi company fleet operations web app for equipment rental companies. TCS is th
 - If a request is unclear, ask instead of guessing.
 
 ## Rules
-- Every table has a company_id column and Row Level Security enabled. No exceptions.
+- Every table except companies has a company_id column, and every table has Row Level Security enabled.
+- New tables are not exposed to the app automatically. Every table the app needs must include explicit GRANT statements in its migration. Tables holding secrets, such as integration_connections, are never granted to app roles.
 - Database changes go in SQL migration files, never made by hand in the dashboard without a matching migration.
 - Never hardcode interface text. All text comes from translation files, and layouts must work right to left (Arabic, Urdu).
 - Values that are in use (roles, severity levels, statuses, stages) are deactivated, never deleted.
