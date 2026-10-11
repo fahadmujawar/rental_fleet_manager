@@ -1,4 +1,4 @@
-# Handoff: Rental Fleet Manager (as of 11 October 2026)
+# Handoff: Rental Fleet Manager (as of 11 October 2026, evening)
 
 Read this first, together with CLAUDE.md and docs/spec.md (Draft 5).
 
@@ -35,11 +35,14 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 1. 20261010190916_create_companies.sql: set_updated_at() trigger function; companies table (name, short_code ^[A-Z0-9]{2,10}$, default_language, timezone Asia/Riyadh, is_active); RLS; select granted to authenticated.
 2. 20261010193303_create_access_foundation.sql: profiles (id = auth.users id), roles (per company), permissions (global list), role_permissions, user_roles; paired (id, company_id) foreign keys so nothing crosses companies; helpers current_company_id() and has_permission(p), both requiring an active profile and an active company; RLS policies; column level grants; no deletes on profiles or roles.
 3. 20261010203251_create_machines.sql: status_values (code, name_en, name_ar, sort_order), customers, locations (names unique per company ignoring case), machines (register columns plus job card fields, chassis_no and serial_no both unique per company, plate_no not unique); permissions machines.manage and lists.manage; RLS and column level grants; no deletes.
+4. 20261011185651_create_status_checkins.sql: customers.is_sister_company; permission checkins.submit; status_checkins (one per machine per day, date window today minus 7 to today in the company timezone, checked in a trigger, not a CHECK); trigger apply_status_checkin() blocks inactive machines and statuses, locks the machine row, records who made the last change; trigger sync_machine_status() copies the status to the machine only for the newest checkin and only when status_id changes; any user with checkins.submit in the company can correct a checkin.
 
 ## Data in fleet-dev (test data, entered in the SQL Editor)
 - Company TCS ("Technical Construction Services").
 - Fahad's login (fahadmujawar002@gmail.com) with a profile in TCS.
-- Role company_admin, holding all four permissions: users.manage, roles.manage, machines.manage, lists.manage. Fahad has this role.
+- Role company_admin, holding all five permissions: users.manage, roles.manage, machines.manage, lists.manage, checkins.submit. Fahad has this role.
+- Ten TCS status values with English and Arabic names (Arabic not yet checked by a native speaker).
+- Register imported 11 October 2026: 4,247 machines (787 on hire, 2,739 idle in yard, 285 under repair, 26 accident damage, 229 scrapped, 91 sold, 85 stolen, 5 missing; 410 inactive), 25 customers (13 sister companies), 22 locations. Names fixed by hand: GTI Company, MAS, Dammam-Khobar.
 - RLS was tested: a logged in user sees only their company and profile; anon gets permission denied; deactivating the company locks the user out.
 
 ## App state (web/)
@@ -50,6 +53,13 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 ## Answered by Fahad (11 October 2026)
 1. "WORKSHOP REPAIRING" means the machine is in the workshop yard. Only some of those are actually under repair, and the August register does not say which.
 2. TCS owns every machine. "Company / Department" shows which company uses the machine now. Users are either sister companies or outside customers.
+
+## Import script (done)
+- scripts/import_register/import_register.py, with its own .venv and a .env holding DATABASE_URL (session pooler, eu-central-1; both git ignored). Dry run by default; --apply writes in one transaction. Rerunnable: a second run gave 0 inserts and 4,247 updates. Machines that have checkins keep their status and active flag on rerun.
+- Run from scripts/import_register: .\.venv\Scripts\python.exe import_register.py [--apply]
+- Report: data/import_report.csv, plus a permanent copy data/import_report_2026-10-11.csv. Removed on import: 261 capacities that were not single numbers (for example 2-/24/26, 6x4), 14 unreadable chassis numbers, 3 duplicate chassis numbers on 6 machines (WT0014, 135653V, MB460085E).
+- Customers to confirm with the team (imported as outside customers): Amaco, Arkad Camp (probably Arkad), Bin Quraya, Denys Arabia, Engineering Box Co, Samama Company.
+- Claude Code's sandbox blocks Python network access; run the script in your own terminal. Claude Code also has a Supabase connector that can run SQL on fleet-dev; do not give it write access to the live project.
 
 ## Decided for the import
 - Source: Main_Data_17-8-25.xlsx (sheet "MAIN DATA ", 4,247 assets, the layout the job card reads). Not in the repo. Ask the workshop for a newer copy before the real import.
@@ -69,11 +79,10 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 - Earlier light vehicles, attachments and Others sheets exist only in the April 2025 file; import decision still open.
 
 ## Next steps, in order
-1. git push (the machines commit may not be on GitHub yet).
-2. Migration: status_checkins (daily status per machine) plus customers.is_sister_company.
-3. Load the TCS status values (data).
-4. Build and test the import script for the register, using the mappings above, with a report of every row it changes or rejects.
-5. Then build step 3: fault reports and work orders (job cards).
+1. Commit and push scripts/import_register (not .env, .venv or data).
+2. App: machine list and daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
+3. Have an Arabic speaker check the status names; confirm the six customers above.
+4. Build step 3: fault reports and work orders (job cards).
 
 ## Open questions from the spec (section 10)
 Storage approach confirmation, TCS stock count, number of TCS stores, latest register copy, sold and stolen import (decided: inactive), extra April sheets, TCS tax rate for job cards, location consent under Saudi PDPL.
