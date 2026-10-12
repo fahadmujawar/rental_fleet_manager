@@ -10,7 +10,12 @@
     "retry": "Retry",
     "back": "Back",
     "home": "Home",
-    "sisterCompany": "Sister company"
+    "sisterCompany": "Sister company",
+    "pager": {
+      "count": "{{from}} to {{to}} of {{total}}",
+      "previous": "Previous",
+      "next": "Next"
+    }
   },
   "language": {
     "label": "Language",
@@ -53,6 +58,7 @@
       "manufacturer": "Manufacturing Name",
       "model": "Model",
       "capacity": "Capacity",
+      "capacityUnit": "Capacity unit",
       "mfgYear": "Mfg Year",
       "status": "Status",
       "customer": "Company/Department",
@@ -91,11 +97,9 @@
         "asc": "{{column}}, ascending",
         "desc": "{{column}}, descending"
       },
-      "count": "{{from}} to {{to}} of {{total}}",
-      "previous": "Previous",
-      "next": "Next",
       "empty": "No machines match",
-      "error": "The machines could not be loaded."
+      "error": "The machines could not be loaded.",
+      "add": "Add machine"
     },
     "detail": {
       "sections": {
@@ -113,7 +117,61 @@
       "noCheckins": "No checkins yet",
       "notFound": "Machine not found",
       "backToList": "Back to the machine list",
-      "error": "The machine could not be loaded."
+      "error": "The machine could not be loaded.",
+      "edit": "Edit"
+    },
+    "history": {
+      "title": "Change history",
+      "empty": "No changes yet",
+      "error": "The change history could not be loaded.",
+      "import": "Import",
+      "created": "Created",
+      "oldValue": "Old value",
+      "newValue": "New value"
+    },
+    "form": {
+      "newTitle": "Add machine",
+      "editTitle": "Edit machine",
+      "requiredNote": "Fields marked * are required.",
+      "noPermission": "You do not have permission to edit machines",
+      "loadError": "The form could not be loaded.",
+      "choose": "Choose…",
+      "noCustomer": "{{code}} (no customer)",
+      "sisterOption": "{{name}} (sister company)",
+      "addNew": "Add new…",
+      "newCustomerName": "New company/department name",
+      "newLocationName": "New location name",
+      "inactiveStatus": "{{name}} (inactive)",
+      "inactiveConfirm": "This status is inactive. The machine will leave the active list and the daily checkin. Do you want to continue?",
+      "leaveConfirm": "You have unsaved changes. Do you want to leave this page and lose them?",
+      "fixErrors": "Correct the fields marked in red, then save again.",
+      "changedBySomeoneElse": "Someone else changed this machine after you opened it. Your changes are not saved. Reload to see the latest values, then enter your changes again.",
+      "reload": "Reload",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "errors": {
+        "required": "Enter a value.",
+        "chooseOne": "Choose Yes or No.",
+        "tooLong": "Use {{max}} characters or fewer.",
+        "invalidAssetNo": "Use only letters, digits and hyphens, starting with a letter or digit (30 characters at most).",
+        "invalidIdentifier": "Use only letters, digits and the characters / . -, starting with a letter or digit (40 characters at most).",
+        "invalidYear": "Enter a whole year from {{min}} to {{max}}.",
+        "invalidCapacity": "Enter a number above 0.",
+        "invalidDate": "Enter a valid date.",
+        "duplicateAssetNo": "Another machine already has this TCS No.",
+        "duplicateAzNo": "Another machine already has this Az No.",
+        "duplicateChassisNo": "Another machine already has this chassis No.",
+        "duplicateSerialNo": "Another machine already has this serial No."
+      },
+      "saveErrors": {
+        "not_allowed": "You do not have permission to edit machines",
+        "machine_not_found": "This machine no longer exists.",
+        "invalid_status": "Choose a valid status.",
+        "invalid_value": "A value is not in the correct format. Check the fields and save again.",
+        "duplicate_value": "A value is already used by another machine.",
+        "generic": "The machine could not be saved. Try again."
+      }
     }
   }
 }

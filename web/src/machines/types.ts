@@ -56,10 +56,36 @@ export type MachineDetail = {
   mobilization_date: string | null
   date_received: string | null
   ownership_note: string | null
+  status_id: string
+  customer_id: string | null
+  location_id: string | null
+  // Exact text from the database, sent back unchanged when saving (a Date would lose the microseconds).
+  updated_at: string
   status_values: StatusName | null
   customers: CustomerRef | null
   locations: { name: string } | null
   companies: { timezone: string; short_code: string } | null
+}
+
+export type MachineChange = {
+  id: string
+  changed_at: string
+  action: 'create' | 'update'
+  field: string
+  old_value: string | null
+  new_value: string | null
+  profiles: { full_name: string } | null
+}
+
+export type FormStatusOption = StatusOption & { sort_order: number }
+export type FormCustomerOption = NamedOption & { is_sister_company: boolean }
+
+export type FormOptions = {
+  statuses: FormStatusOption[]
+  customers: FormCustomerOption[]
+  locations: NamedOption[]
+  suggestions: Record<'main_category' | 'sub_category' | 'sub_category_2' | 'asset_type', string[]>
+  companyCode: string
 }
 
 export type LatestCheckin = {

@@ -4,7 +4,9 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { AppHeader } from '../components/AppHeader'
 import { CompanyDepartment } from '../components/CompanyDepartment'
 import { LtrValue } from '../components/LtrValue'
-import { appLocale, formatNumber } from '../lib/format'
+import { usePermission } from '../auth/usePermission'
+import { Pager } from '../components/Pager'
+import { appLocale } from '../lib/format'
 import { cleanSearch, searchMaxLength } from '../lib/search'
 import { isUuid } from '../lib/uuid'
 import { fetchFilterOptions, fetchMachinePage, pageSize } from '../machines/queries'
@@ -51,6 +53,7 @@ export function MachineListPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const canEdit = usePermission('machines.manage') === true
   const params = useMemo(() => readParams(searchParams), [searchParams])
   const [reloadKey, setReloadKey] = useState(0)
   const requestKey = `${searchParams.toString()}|${reloadKey}`
@@ -216,7 +219,18 @@ export function MachineListPage() {
         <Link to="/" className="text-sm text-blue-700 underline">
           {t('common.home')}
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-gray-900">{t('machines.list.title')}</h1>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-900">{t('machines.list.title')}</h1>
+          {canEdit && (
+            <Link
+              to="/machines/new"
+              state={{ from: location.search }}
+              className="rounded bg-gray-900 px-4 py-2 text-sm text-white"
+            >
+              {t('machines.list.add')}
+            </Link>
+          )}
+        </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="block sm:col-span-2 lg:col-span-3">
@@ -337,7 +351,7 @@ export function MachineListPage() {
                 page={params.page}
                 shown={current.rows.length}
                 total={current.total}
-                lang={lang}
+                pageSize={pageSize}
                 onPage={goToPage}
               />
 
@@ -458,51 +472,13 @@ export function MachineListPage() {
                 page={params.page}
                 shown={current.rows.length}
                 total={current.total}
-                lang={lang}
+                pageSize={pageSize}
                 onPage={goToPage}
               />
             </>
           )}
         </div>
       </main>
-    </div>
-  )
-}
-
-function Pager(props: { page: number; shown: number; total: number; lang: string; onPage: (page: number) => void }) {
-  const { t } = useTranslation()
-  const from = (props.page - 1) * pageSize + 1
-  const to = from + props.shown - 1
-  const lastPage = Math.ceil(props.total / pageSize)
-  const buttonClass = 'rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 disabled:opacity-40'
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-gray-700">
-        {t('machines.list.count', {
-          from: formatNumber(from, props.lang),
-          to: formatNumber(to, props.lang),
-          total: formatNumber(props.total, props.lang),
-        })}
-      </p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={props.page <= 1}
-          onClick={() => props.onPage(props.page - 1)}
-          className={buttonClass}
-        >
-          {t('machines.list.previous')}
-        </button>
-        <button
-          type="button"
-          disabled={props.page >= lastPage}
-          onClick={() => props.onPage(props.page + 1)}
-          className={buttonClass}
-        >
-          {t('machines.list.next')}
-        </button>
-      </div>
     </div>
   )
 }

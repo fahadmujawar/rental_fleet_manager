@@ -105,6 +105,7 @@ MAX_YEAR = datetime.date.today().year + 1
 MAX_CAPACITY = Decimal("9999999999.99")  # numeric(12,2)
 
 SITE_NO_TEXT = {"WORKSHOP REPAIRING", "SCRAP IN YARD"}
+LOCATION_ALIASES = {"jaffurah": "Jafurah"}  # lower case spelling in the file -> stored name
 SISTER_VOTES = {"SISTER COMPANIES": True, "AZMEEL": True, "CUSTOMERS": False}
 ALWAYS_SISTER = {"AZMEEL CONTRACTING COMPANY"}
 STATUS_CODES = [
@@ -142,6 +143,8 @@ MACHINE_COLUMNS = [
     "is_active",
 ]
 HAS_CHECKINS_SQL = "exists (select 1 from public.status_checkins c where c.machine_id = m.id)"
+HAS_CHANGES_SQL = "exists (select 1 from public.machine_changes mc where mc.machine_id = m.id)"
+UNIQUE_FIELDS = ["chassis_no", "serial_no", "az_no"]
 KEEP_IF_CHECKINS = {
     "status_id": "m.status_id",
     "is_active": "(select s.is_active from public.status_values s where s.id = m.status_id)",
@@ -380,16 +383,25 @@ def load_db_state(cur):
         for lid, name, active in cur.fetchall()
     }
 
+    # machine_changes exists from migration 20261012140000 on; before that no machine has changes.
+    cur.execute("select to_regclass('public.machine_changes') is not null")
+    has_changes_sql = HAS_CHANGES_SQL if cur.fetchone()[0] else "false"
     cur.execute(
         "select m.asset_no, s.code, "
-        f"{HAS_CHECKINS_SQL} "
-        "from public.machines m join public.status_values s on s.id = m.status_id "
+        f"{HAS_CHECKINS_SQL}, {has_changes_sql}, "
+        + ", ".join(f"m.{f}" for f in UNIQUE_FIELDS)
+        + " from public.machines m join public.status_values s on s.id = m.status_id "
         "where m.company_id = %s",
         (company_id,),
     )
     machines = {
-        asset_no: {"status": code, "has_checkins": has_checkins}
-        for asset_no, code, has_checkins in cur.fetchall()
+        row[0]: {
+            "status": row[1],
+            "has_checkins": row[2],
+            "has_changes": row[3],
+            **dict(zip(UNIQUE_FIELDS, row[4:])),
+        }
+        for row in cur.fetchall()
     }
 
     return {
@@ -467,6 +479,10 @@ def clean_machine(row, asset_no, status, report):
 
     location = clean_name(row["location"], "location", asset_no, report)
     location = title_case(location) if location else None
+    if location and location.lower() in LOCATION_ALIASES:
+        alias = LOCATION_ALIASES[location.lower()]
+        report.add(asset_no, "location", location, alias, "location_alias")
+        location = alias
     machine["location_key"] = location.lower() if location else None
     machine["location_name"] = location
 
@@ -582,12 +598,19 @@ def build_plan(state, report):
     for field in ("main_category", "sub_category", "sub_category_2", "asset_type"):
         unify_case(machines, field, report)
 
-    # Machines in the database that are not in the file are deleted. A checkin blocks that.
+    # Machines in the database that are not in the file are deleted. A checkin or a change made
+    # in the app (for example a machine added there) blocks that.
     to_delete = sorted(a for a in state["machines"] if a not in in_file)
     blocked = [a for a in to_delete if state["machines"][a]["has_checkins"]]
     if blocked:
         raise ImportStop(
             f"{len(blocked)} machine(s) not in the file have status checkins and cannot be deleted: "
+            + ", ".join(blocked)
+        )
+    blocked = [a for a in to_delete if state["machines"][a]["has_changes"]]
+    if blocked:
+        raise ImportStop(
+            f"{len(blocked)} machine(s) not in the file have changes made in the app and cannot be deleted: "
             + ", ".join(blocked)
         )
 
@@ -736,15 +759,19 @@ def apply_plan(cur, plan, state):
             (c["name"], c["is_sister"], customer_ids[key]),
         )
 
-    # Clear the unique values first, so that two machines can swap a value
-    # without a unique constraint error in the middle of the upsert.
-    existing = [m["asset_no"] for m in plan["machines"] if m["asset_no"] in state["machines"]]
-    if existing:
-        cur.execute(
-            "update public.machines set chassis_no = null, serial_no = null, az_no = null "
-            "where company_id = %s and asset_no = any(%s)",
-            (company_id, existing),
-        )
+    # Clear a unique value first where it changes, so that two machines can swap a value
+    # without a unique constraint error in the middle of the upsert. Unchanged values are not
+    # touched, so the change log does not record them going to null and back.
+    for field in UNIQUE_FIELDS:
+        changing = [
+            m["asset_no"] for m in plan["machines"]
+            if m["asset_no"] in state["machines"] and m[field] != state["machines"][m["asset_no"]][field]
+        ]
+        if changing:
+            cur.execute(
+                f"update public.machines set {field} = null where company_id = %s and asset_no = any(%s)",
+                (company_id, changing),
+            )
 
     params = []
     for m in plan["machines"]:

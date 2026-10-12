@@ -1,0 +1,43 @@
+// Machine columns: the label key under machines.fields, and how a value is shown.
+// Shared by the change history (which stores column names) and the edit form.
+
+export type FieldKind = 'text' | 'code' | 'date' | 'number' | 'year' | 'boolean'
+
+export const machineFields: Record<string, { label: string; kind: FieldKind }> = {
+  asset_no: { label: 'assetNo', kind: 'code' },
+  az_no: { label: 'azNo', kind: 'code' },
+  chassis_no: { label: 'chassisNo', kind: 'code' },
+  serial_no: { label: 'serialNo', kind: 'code' },
+  plate_no: { label: 'plateNo', kind: 'code' },
+  istimara_serial_no: { label: 'istimaraSerialNo', kind: 'text' },
+  main_category: { label: 'mainCategory', kind: 'text' },
+  sub_category: { label: 'subCategory', kind: 'text' },
+  sub_category_2: { label: 'subCategory2', kind: 'text' },
+  asset_type: { label: 'type', kind: 'text' },
+  description: { label: 'description', kind: 'text' },
+  manufacturer: { label: 'manufacturer', kind: 'text' },
+  model: { label: 'model', kind: 'text' },
+  capacity: { label: 'capacity', kind: 'number' },
+  capacity_unit: { label: 'capacityUnit', kind: 'text' },
+  mfg_year: { label: 'mfgYear', kind: 'year' },
+  status_id: { label: 'status', kind: 'text' },
+  customer_id: { label: 'customer', kind: 'text' },
+  location_id: { label: 'location', kind: 'text' },
+  site: { label: 'site', kind: 'text' },
+  project_name: { label: 'projectName', kind: 'text' },
+  insurance_expiry: { label: 'insuranceExpiry', kind: 'date' },
+  mvpi_expiry: { label: 'mvpiExpiry', kind: 'date' },
+  tuv_certificate_no: { label: 'tuvCertificateNo', kind: 'text' },
+  tuv_certificate_expiry: { label: 'tuvCertificateExpiry', kind: 'date' },
+  operational_card_no: { label: 'operationalCardNo', kind: 'text' },
+  operational_card_expiry: { label: 'operationalCardExpiry', kind: 'date' },
+  isthimara_expiry: { label: 'isthimaraExpiry', kind: 'date' },
+  fuel_type: { label: 'fuelType', kind: 'text' },
+  fuel_chip: { label: 'fuelChip', kind: 'text' },
+  gps_installed: { label: 'gpsInstalled', kind: 'boolean' },
+  gps_imei: { label: 'gpsImei', kind: 'text' },
+  gps_date: { label: 'gpsDate', kind: 'date' },
+  mobilization_date: { label: 'mobilizationDate', kind: 'date' },
+  date_received: { label: 'dateReceived', kind: 'date' },
+  ownership_note: { label: 'ownershipNote', kind: 'text' },
+}

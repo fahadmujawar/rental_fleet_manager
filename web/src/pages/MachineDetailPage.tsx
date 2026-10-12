@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router-dom'
+import { usePermission } from '../auth/usePermission'
 import { AppHeader } from '../components/AppHeader'
+import { ChangeHistory } from '../components/ChangeHistory'
 import { LtrValue } from '../components/LtrValue'
 import { CompanyDepartment } from '../components/CompanyDepartment'
 import { expiryState, formatDate, formatNumber, todayIn } from '../lib/format'
@@ -26,6 +28,7 @@ export function MachineDetailPage() {
   const requestKey = `${id}|${reloadKey}`
   const [result, setResult] = useState<DetailResult | null>(null)
   const validId = isUuid(id)
+  const canEdit = usePermission('machines.manage') === true
 
   useEffect(() => {
     if (!isUuid(id)) return
@@ -82,7 +85,8 @@ export function MachineDetailPage() {
     }
 
     const m = current.machine
-    const today = todayIn(m.companies?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
+    const timeZone = m.companies?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+    const today = todayIn(timeZone)
 
     const text = (value: string | null): ReactNode => value ?? notSet
     const code = (value: string | null): ReactNode => (value ? <LtrValue value={value} /> : notSet)
@@ -183,9 +187,20 @@ export function MachineDetailPage() {
 
     return (
       <>
-        <h1 className="text-2xl font-semibold text-gray-900">
-          <LtrValue value={m.asset_no} />
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            <LtrValue value={m.asset_no} />
+          </h1>
+          {canEdit && (
+            <Link
+              to={`/machines/${m.id}/edit`}
+              state={location.state}
+              className="rounded bg-gray-900 px-4 py-2 text-sm text-white"
+            >
+              {t('machines.detail.edit')}
+            </Link>
+          )}
+        </div>
         {m.description && <p className="mt-1 text-gray-700">{m.description}</p>}
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -207,6 +222,8 @@ export function MachineDetailPage() {
               <p className="text-gray-600">{t('machines.detail.noCheckins')}</p>
             )}
           </section>
+
+          <ChangeHistory machineId={m.id} timeZone={timeZone} />
         </div>
       </>
     )

@@ -1,12 +1,12 @@
+import { cleanText } from './text'
+
 export const searchMaxLength = 100
 
 const searchColumns = ['asset_no', 'az_no', 'plate_no', 'chassis_no', 'serial_no', 'description']
 
-// Spaces and control characters become one space, as in the stored register values; outer spaces go.
-// An empty result means "no search".
+// Cleaned like the stored register values. An empty result means "no search".
 export function cleanSearch(raw: string): string {
-  // eslint-disable-next-line no-control-regex
-  return raw.replace(/[\s\u0000-\u001f\u007f-\u009f]+/g, ' ').trim().slice(0, searchMaxLength)
+  return (cleanText(raw) ?? '').slice(0, searchMaxLength)
 }
 
 // A PostgREST or() filter: case insensitive "contains" on every search column.

@@ -46,7 +46,13 @@ to write anyway. You can run the script again: machines are matched on asset_no 
   (see `status_for`). A row that matches no rule is rejected (reason `no_status_rule`).
   A machine's is_active follows the is_active flag of its status.
 - TCS machines in the database that are not in the file are deleted. Then customers and locations
-  that no machine uses are deleted. A machine with status checkins blocks the import.
+  that no machine uses are deleted. A machine with status checkins, or with changes made in the app
+  (machine_changes), blocks the import.
+- After Operations start editing in the app, do not import again: the import overwrites app edits
+  (the change log records them as "Import").
+- Location aliases (`LOCATION_ALIASES`): "Jaffurah" is stored as "Jafurah" (reason `location_alias`).
+- Chassis, serial and Az No are cleared before the upsert only on machines where the value changes,
+  so the change log does not record unchanged values.
 - Company / Department: TCS means no customer. Other names are kept as typed, matched ignoring case.
   is_sister_company is the majority of the machines' Rent-Description (Sister Companies or Azmeel =
   sister, Customers = customer). Azmeel Contracting Company is always a sister company.

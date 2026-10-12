@@ -39,11 +39,13 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 5. 20261012120000_register_v2_status_and_columns.sql: status_values.requires_checkin (boolean, default true); the 15 TCS status values (idle_yard renamed to ready_in_yard, on_hire to on_hire_customer, broken_down_site to broken_down_on_site, so ids stayed; skipped if company TCS does not exist); 17 new nullable machines columns: az_no (unique per company when not null), ownership_note, project_name, istimara_serial_no, insurance_expiry, mvpi_expiry, tuv_certificate_no, tuv_certificate_expiry, operational_card_no, operational_card_expiry, mobilization_date, date_received, fuel_type, fuel_chip, gps_imei, gps_installed, gps_date. Plate No uses the existing plate_no column. Column update grants added; the existing RLS policies cover the new columns.
 
 6. 20261012130000_machines_az_no_number.sql: machines.az_no_number, a stored generated bigint from az_no (only when az_no is 1 to 18 digits), used only to sort Az No in number order. No new grant or policy.
+7. 20261012140000_machine_editing.sql: roles.name_ar; TCS role operations_manager ("Operations manager", "مدير العمليات") with machines.manage (company_admin keeps it); uniqueness checks (asset_no per company, customer and location names ignoring case; all existed, added only if missing); table machine_changes (one row per changed column, status/customer/location stored as names, changed_by null = no logged in user) written only by the security definer trigger log_machine_changes() after insert or update on machines (skips id, company_id, created_at, updated_at, az_no_number, is_active), select for the company, no write grant; insert policies on customers and locations for machines.manage; function save_machine(p_machine jsonb, p_expected_updated_at timestamptz), security invoker, execute for authenticated only: optional new customer / location (case insensitive reuse), is_active from the status, insert or update only when updated_at matches, error codes not_allowed, machine_changed, machine_not_found, duplicate_asset_no, duplicate_az_no, duplicate_chassis_no, duplicate_serial_no, customer_name_required, sister_company_required, location_name_required, invalid_status, invalid_value. Tested in SQL as Fahad (rolled back): create 10 log rows, update 2, stale save, duplicates, delete refused, direct log insert refused.
 
 ## Data in fleet-dev (test data, entered in the SQL Editor)
 - Company TCS ("Technical Construction Services").
 - Fahad's login (fahadmujawar002@gmail.com) with a profile in TCS.
 - Role company_admin, holding all five permissions: users.manage, roles.manage, machines.manage, lists.manage, checkins.submit. Fahad has this role.
+- Role operations_manager (machines.manage only), from migration 7. No user has it yet: add the Operations user with docs/admin/add_user.md (profiles and roles are added by hand; there is no trigger on auth.users).
 - Fifteen TCS status values (list below) with English and Arabic names (Arabic not yet checked by a native speaker).
 - Register imported again 12 October 2026 from Total_Assets.xlsx (last run after the case rule was added: 1 value changed, "Drilling Equipment" to "DRILLING EQUIPMENT" on 11-02-0001; now 13 main categories): 3,767 machines (1,971 in yard needs makeup, 623 scrapped, 381 under repair, 259 on hire sister company, 212 on hire customer, 112 sister company no access, 98 ready in yard, 71 with Azmeel not rentable, 21 accident damage, 19 in TCS use; 623 inactive), 0 rejected. 480 machines from the old register that are not in the file were deleted. 24 customers (13 sister companies), 24 locations; unused old customers and locations were deleted.
 - RLS was tested: a logged in user sees only their company and profile; anon gets permission denied; deactivating the company locks the user out.
@@ -57,11 +59,18 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
   - List fields, chosen by Operations, in this order: Az No, TCS No, Sub Category 2, Type, Description, Company/Department, Ownership, Location, Site, Chassis No, Plate No, then Status (Fahad). Manufacturing Name was removed from the list on request; it shows on the detail page. Company/Department shows the company short code (TCS) when a machine has no customer.
   - Sort: Az No (number order through az_no_number; other values after the numbers), TCS No (default), Plate No, Company/Department, Status (status sort_order). Empty values come last in both directions; TCS No is always the last sort key.
   - /machines/:id: Identification, Specification, Assignment, Compliance (Expired / Expires soon labels, today in the company time zone), Other, Latest checkin. "Machine not found" for an unknown id, a malformed id or a row RLS hides.
-  - Code: src/machines (types, queries), src/lib (format, search, uuid), src/components (AppHeader, CompanyDepartment, LtrValue, SisterBadge), src/pages (MachineListPage, MachineDetailPage). No edit buttons anywhere.
+  - Code: src/machines (types, queries, fields, validation), src/lib (format, search, text, uuid), src/components (AppHeader, ChangeHistory, CompanyDepartment, LtrValue, Pager, SisterBadge), src/pages (MachineListPage, MachineDetailPage, MachineFormPage), src/auth/usePermission.ts, src/router.tsx.
+- Register editing (12 October 2026; manual tests pending):
+  - Router: createBrowserRouter in src/router.tsx (a data router, needed for useBlocker); App.tsx was removed. RequireAuth sends the page to /login, and the login returns to it.
+  - usePermission('machines.manage') calls has_permission once per user; Add machine (list) and Edit (detail) show only when true. RLS still decides.
+  - /machines/new and /machines/:id/edit: the five detail sections, every field editable, same labels; validation rules copied from the import script (src/machines/validation.ts); category suggestions with case matching; Company/Department and Location selects with Add new; confirmation when an active status changes to an inactive one; Save calls save_machine; "changed by someone else" message with Reload; duplicate codes shown under the field; unsaved changes ask before leaving (in app and browser close). Without machines.manage: "You do not have permission to edit machines".
+  - Fields not on the form are kept as they are: old_asset_no, engine_model, engine_no, colour, warranty_expiry (job card fields, step 3).
+  - Detail page: Change history (newest first, 20 per page, company time zone, "Import" when changed_by is null).
   - Known limits: the Main Category list is read from machines in chunks of 1,000 rows (main_category is text, not a list table); a view can replace this later. A typed * in the search matches any one character (PostgREST treats * as a wildcard).
 
 ## Who can write machines (checked 12 October 2026 against migrations and fleet-dev)
-- Insert: an authenticated user with an active profile in an active company who holds an active role with the active permission machines.manage, and only rows with their own company_id. Today only role company_admin (1 user, Fahad).
+- Insert: an authenticated user with an active profile in an active company who holds an active role with the active permission machines.manage, and only rows with their own company_id. Roles company_admin (Fahad) and operations_manager (no user yet). The app writes through save_machine (security invoker, so the same rules apply).
+- Every insert and update, from any path, is logged in machine_changes by a trigger. Nobody can write machine_changes directly.
 - Update: the same condition for the old and the new row, and only the granted columns (not id, company_id, created_at, updated_at). Indirect: the security definer trigger sync_machine_status() changes machines.status_id when a user with checkins.submit saves the newest checkin for a machine (today also only company_admin).
 - Delete: nobody through the app (no delete grant, no delete policy). anon has no grants. Only the database owner connection (the import script) bypasses RLS.
 
@@ -69,13 +78,21 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 Field labels: رقم TCS، رقم أزميل، الوصف، الفئة الرئيسية، الفئة الفرعية، الفئة الفرعية 2، النوع، الطراز، السعة، سنة الصنع، الحالة، الشركة/القسم (Company/Department)، اسم الشركة المصنعة (Manufacturing Name)، الملكية (Ownership)، الموقع (Site)، المنطقة (Location)، اسم المشروع، رقم الشاسيه، الرقم التسلسلي، رقم اللوحة، الرقم التسلسلي للاستمارة، انتهاء التأمين، انتهاء الفحص الدوري (MVPI)، رقم شهادة TUV، انتهاء شهادة TUV، رقم بطاقة التشغيل، انتهاء بطاقة التشغيل، انتهاء الاستمارة، نوع الوقود، شريحة الوقود، جهاز GPS مركّب، رقم IMEI لجهاز GPS، تاريخ GPS، تاريخ التحريك، تاريخ الاستلام.
 Other: غير محدد، نعم، لا، إعادة المحاولة، رجوع، الرئيسية، شركة شقيقة، القائمة الرئيسية، سجل المعدات، بحث، (search hint) رقم TCS أو رقم أزميل أو اللوحة أو الشاسيه أو الرقم التسلسلي أو الوصف، الكل، إظهار غير النشطة، الترتيب، الترتيب حسب {{column}}، {{column}}، تصاعدي، {{column}}، تنازلي، {{from}} إلى {{to}} من {{total}}، السابق، التالي، لا توجد معدات مطابقة، تعذّر تحميل المعدات.، التعريف، المواصفات، التخصيص، الامتثال، أخرى، آخر تسجيل حالة، منتهي، ينتهي قريبًا، التاريخ، أرسله، لا توجد تسجيلات حالة بعد، المعدة غير موجودة، العودة إلى قائمة المعدات، تعذّر تحميل المعدة.
 
+## Arabic interface strings to review (register editing, written 12 October 2026)
+Role: مدير العمليات (Operations manager).
+Buttons and titles: إضافة معدة، تعديل، تعديل المعدة، حفظ، جارٍ الحفظ…، إلغاء، إعادة التحميل، اختر…، إضافة جديد…، وحدة السعة.
+Form: الحقول المميزة بـ * مطلوبة.، ليست لديك صلاحية تعديل المعدات، تعذّر تحميل النموذج.، {{code}} (بدون عميل)، {{name}} (شركة شقيقة)، اسم الشركة/القسم الجديد، اسم المنطقة الجديدة، {{name}} (غير نشطة)، هذه الحالة غير نشطة. ستخرج المعدة من القائمة النشطة ومن تسجيل الحالة اليومي. هل تريد المتابعة؟، لديك تغييرات غير محفوظة. هل تريد مغادرة هذه الصفحة وفقدانها؟، صحّح الحقول المميزة باللون الأحمر ثم احفظ مرة أخرى.، قام شخص آخر بتغيير هذه المعدة بعد أن فتحتها. لم تُحفظ تغييراتك. أعد التحميل لرؤية أحدث القيم ثم أدخل تغييراتك مرة أخرى.
+Field errors: أدخل قيمة.، اختر نعم أو لا.، استخدم {{max}} حرفًا أو أقل.، استخدم الحروف والأرقام والشرطة فقط، على أن يبدأ بحرف أو رقم (30 حرفًا كحد أقصى).، استخدم الحروف والأرقام والرموز / . - فقط، على أن يبدأ بحرف أو رقم (40 حرفًا كحد أقصى).، أدخل سنة صحيحة من {{min}} إلى {{max}}.، أدخل رقمًا أكبر من 0.، أدخل تاريخًا صحيحًا.، يوجد رقم TCS هذا لمعدة أخرى.، يوجد رقم أزميل هذا لمعدة أخرى.، يوجد رقم الشاسيه هذا لمعدة أخرى.، يوجد الرقم التسلسلي هذا لمعدة أخرى.
+Save errors: لم تعد هذه المعدة موجودة.، اختر حالة صحيحة.، إحدى القيم بصيغة غير صحيحة. تحقق من الحقول ثم احفظ مرة أخرى.، إحدى القيم مستخدمة لمعدة أخرى.، تعذّر حفظ المعدة. حاول مرة أخرى.
+Change history: سجل التغييرات، لا توجد تغييرات بعد، تعذّر تحميل سجل التغييرات.، الاستيراد، إنشاء، القيمة السابقة، القيمة الجديدة.
+
 ## Answered by Fahad (11 October 2026)
 1. "WORKSHOP REPAIRING" means the machine is in the workshop yard. Only some of those are actually under repair, and the August register does not say which.
 2. TCS owns every machine. "Company / Department" shows which company uses the machine now. Users are either sister companies or outside customers.
 
 ## Register source (decided 12 October 2026)
 - The register comes only from data/Total_Assets.xlsx (sheet "Sheet1", header row 1), supplied by Operations. Main_Data_17-8-25.xlsx and Main_Data_April_30_2025.xlsx are no longer used. The data folder is git ignored.
-- From now on Operations edits the register in the app. That screen is not built yet. Until then, a new copy of the file can be imported with the script.
+- From now on Operations edits the register in the app (register edit screen built 12 October 2026). After Operations start editing, do not import the Excel file again: the import overwrites app edits (they are logged as "Import"). A machine added in the app, or with any logged change, stops the import if it is not in the file.
 - TCS owns every machine. OwnerShip (Azmeel, Ajel, Orix and others) is stored as ownership_note, information only.
 
 ## TCS status values (code, English, active, requires checkin)
@@ -105,7 +122,8 @@ The Arabic for rows 1, 2, 7, 8, 9, 10 and 11 was written on 12 October 2026 and 
 - Rules: see scripts/import_register/README.md. Status comes from 13 ordered rules on TCS No, Rent-Description, Site and Status. TCS machines not in the file, and customers and locations no machine uses, are deleted. Customer is_sister_company is the majority of its machines' Rent-Description.
 - Main Category, Sub Category, Sub Category 2 and Type: values that differ only in case become one value, the spelling most used in the file (first seen on a tie), the same method as customer names (report reason case_unified).
 - Report: data/import_report.csv. Removed on the 12 October import: 259 capacities that were not single numbers, 14 unreadable chassis numbers, 1 unreadable serial number, 2 duplicate chassis numbers on 4 machines, 6 values in date columns that were not real dates. 375 chassis values moved to serial_no.
-- Locations to check with Operations: Jaffurah and Jafurah are both in the file (probably one place).
+- Location alias (12 October 2026): "Jaffurah" is stored as "Jafurah" (LOCATION_ALIASES). Applied before migration 7; fleet-dev now has one location Jafurah (3 machines) and 23 locations in total.
+- With the change log trigger, the script clears chassis_no, serial_no and az_no before the upsert only where the value changes. A run after migration 7 wrote 0 machine_changes rows.
 - Claude Code also has a Supabase connector that can run SQL on fleet-dev; do not give it write access to the live project.
 
 ## Known data problems
@@ -115,8 +133,8 @@ The Arabic for rows 1, 2, 7, 8, 9, 10 and 11 was written on 12 October 2026 and 
 ## Next steps, in order
 1. Replace docs/spec.md with Draft 6 (Fahad).
 2. Commit and push the migration, scripts/import_register and docs (not .env, .venv or data).
-3. App: run the manual tests for the read only machine register; then the register edit screen for Operations (with machine_changes), and the daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
-4. Have an Arabic speaker check the status names.
+3. App: run the manual tests for the machine register and register editing; add the Operations user (docs/admin/add_user.md); then the daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
+4. Have an Arabic speaker check the status names and the interface strings listed above.
 5. Build step 3: fault reports and work orders (job cards).
 
 ## Open questions from the spec (section 10)

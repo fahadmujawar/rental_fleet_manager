@@ -17,6 +17,19 @@ export function formatDate(isoDate: string, lang: string): string {
   }).format(parseIsoDate(isoDate))
 }
 
+// A moment (timestamptz) as date and time in the given time zone, for example "12 Oct 2026, 14:05".
+export function formatDateTime(isoTimestamp: string, lang: string, timeZone: string): string {
+  return new Intl.DateTimeFormat(appLocale(lang), {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(new Date(isoTimestamp))
+}
+
 export function formatNumber(value: number, lang: string, maxFractionDigits = 0): string {
   return new Intl.NumberFormat(appLocale(lang), { maximumFractionDigits: maxFractionDigits }).format(value)
 }

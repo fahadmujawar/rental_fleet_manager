@@ -1,12 +1,20 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { supabase } from '../lib/supabase'
 
+// The page RequireAuth came from, if it is a path in this app ("//host" would leave the app); else Home.
+function returnPath(state: unknown): string {
+  const from = (state as { from?: { pathname?: unknown; search?: unknown } } | null)?.from
+  if (typeof from?.pathname !== 'string' || !from.pathname.startsWith('/') || from.pathname.startsWith('//')) return '/'
+  return from.pathname + (typeof from.search === 'string' ? from.search : '')
+}
+
 export function LoginPage() {
   const { t } = useTranslation()
+  const location = useLocation()
   const { session, loading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,7 +22,7 @@ export function LoginPage() {
   const [errorKey, setErrorKey] = useState<string | null>(null)
 
   if (loading) return <p className="p-6 text-start text-gray-600">{t('app.loading')}</p>
-  if (session) return <Navigate to="/" replace />
+  if (session) return <Navigate to={returnPath(location.state)} replace />
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
