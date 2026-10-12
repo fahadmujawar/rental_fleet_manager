@@ -1,6 +1,6 @@
 # Fleet Operations Tool: Product Spec
 
-*Draft 5, 10 October 2026. Status: for review by Fahad. Anything marked OPEN is not yet decided.*
+*Draft 6, 12 October 2026. Status: for review by Fahad. Anything marked OPEN is not yet decided.*
 
 ## 1. Purpose
 
@@ -30,7 +30,7 @@ Roles and their permissions are configurable per company. The table below shows 
 | Mechanic           | Carries out repairs on assigned work orders and updates their progress                                                                                                                          |
 | Purchase manager   | Checks stock with Stores, can put requests on standby or restart them, researches suppliers, raises POs, receives and inspects parts, handles urgent deliveries                                 |
 | Stores             | Confirms stock availability, receives parts from Purchase, issues parts to Workshop                                                                                                             |
-| Operations manager | Can put requests on standby or restart them. Wider Operations duties (mobilisation, registration, MVPI, insurance, inspections, asset movement, violations, accidents) belong to a later module |
+| Operations manager | Maintains the machine register: adds machines and edits any machine field (4.2). Can put requests on standby or restart them. Wider Operations duties (mobilisation, registration, MVPI, insurance, inspections, asset movement, violations, accidents) belong to a later module |
 | General Manager    | Approves purchases of parts not in stock and cash purchases, sees every store issue and can hold it, can override any decision                                                                  |
 | Finance            | Releases funds for approved cash purchases                                                                                                                                                      |
 | Company admin      | Manages users, roles and permissions, severity levels, status values, workflow stages, the parts catalogue and urgent flags for their company                                                   |
@@ -44,12 +44,58 @@ Who submits the daily status checkin is a permission the company admin assigns, 
 - Roles and permissions stored in tables. TCS defaults loaded at setup, then managed through the admin editors (4.9).
 
 ### 4.2 Machine register
-- Seeded from the TCS register file Main_Data_17-8-25.xlsx (4,247 assets, the layout the job card reads), after cleaning, or a newer copy if one exists. The import script written for the older 3,093 asset file must be updated for this file’s columns.
+- Seeded from the Operations team file Total_Assets.xlsx (3,767 assets), after cleaning. This is the only source. Earlier register files (Main_Data_17-8-25.xlsx, the April 2025 file and older copies) are not used, and the 480 assets that appear only in them are left out.
+- After go live, the app is the master register. Operations stop editing the Excel file.
+- Operations can add a machine and edit any machine field at any time through a register edit screen. Every edit is recorded with who made it, when, and the old and new value.
+- Fields stored per machine: TCS No (asset number), Azmeel No (Az No), categories, type, description, manufacturer, model, capacity, Mfg Year, chassis or serial number, plate number, Istimara serial number, insurance expiry, MVPI expiry, TUV certificate number and expiry, operational card number and expiry, mobilisation date, date received, fuel type, fuel chip, GPS IMEI, GPS installed and GPS date, project name, site, location, customer and status.
+- OwnerShip (Azmeel, Ajel, Orix and others) is stored as information only. TCS owns and manages every machine.
+- Company / Department becomes the customer the machine is with. Whether that customer is a sister company or a paying customer comes from each machine's Rent-Description, because TCS is paid for machines with customers and not for machines with sister companies. Azmeel counts as a sister company. A machine keeps its own value even when it differs from other machines of the same company.
 - Extra machine details needed for job cards: VIN (from chassis number), engine model and number, colour, Isthimara validity and warranty validity. Most are empty at import and filled in over time.
 - Searchable list and a detail page per machine showing latest status, open faults and open parts requests.
 
+**Import status rules.** The first matching rule sets each machine's status.
+
+| Rule | Operations data | App status | Machines at import |
+|------|-----------------|------------|--------------------|
+| 1 | TCS No 04-04-0028 (Generator Division) | In TCS use | 1 |
+| 2 | TCS No 02-02-0025 | Scrapped | 1 |
+| 3 | Rent-Description Scrap | Scrapped | 622 |
+| 4 | Site ACCIDENT | Accident damage | 21 |
+| 5 | Rent-Description Major Breakdown or Fixed Water Tanks | Under repair | 381 |
+| 6 | Rent-Description General Services, TCS Site Use or Industrial Safety | In TCS use | 18 |
+| 7 | Rent-Description Private Sector | With Azmeel, not rentable | 71 |
+| 8 | Status On Job / No Access | Sister company, no access | 112 |
+| 9 | Rent-Description Customers | On hire, customer | 212 |
+| 10 | Rent-Description Sister Companies or Azmeel | On hire, sister company | 259 |
+| 11 | Rent-Description Yard and Status Available | Ready in yard | 98 |
+| 12 | Rent-Description Yard | In yard, needs makeup | 1,971 |
+
+Notes on the Operations data: Status "Under Repair" is their default for yard machines that need minor makeup before leaving, so only Major Breakdown machines are truly under repair. "On Job / No Access" means sister company units that TCS cannot reach for PMs or updates. "Private Sector" means units with Azmeel Contracting Company that TCS cannot rent.
+
 ### 4.3 Daily status checkin
-- A quick status per machine. TCS values: Working on hire, Idle in yard, Under repair, Awaiting repair, Broken down on site, Scrapped. Values can be renamed or deactivated later. Status values are configurable per company.
+- A quick status per machine. Status values are configurable per company and can be renamed or deactivated later. Each value has two flags: active (the machine is still in the fleet) and requires checkin (the machine appears in the daily checkin).
+- TCS values:
+
+| Status | Active | In daily checkin |
+|--------|--------|------------------|
+| Ready in yard | Yes | Yes |
+| In yard, needs makeup | Yes | Yes |
+| Under repair | Yes | Yes |
+| Awaiting repair | Yes | Yes |
+| Accident damage | Yes | Yes |
+| Broken down on site | Yes | Yes |
+| On hire, customer | Yes | Yes |
+| On hire, sister company | Yes | Yes |
+| Sister company, no access | Yes | No |
+| With Azmeel, not rentable | Yes | No |
+| In TCS use | Yes | Yes |
+| Scrapped | No | No |
+| Sold | No | No |
+| Stolen | No | No |
+| Missing | No | No |
+
+- Sister company, no access and With Azmeel, not rentable machines skip the daily checkin because TCS cannot reach them (proposed, awaiting confirmation).
+- Arabic names for these values must be reviewed by a native speaker before staff use the app.
 - Who may submit checkins is a permission assigned by the company admin. TCS default: Supervisor.
 
 ### 4.4 Fault reports
@@ -145,7 +191,9 @@ Every table carries company_id. Field level detail comes in the schema design st
 | companies                                        | Each customer company                                                                    |
 | profiles                                         | Users, linked to Supabase login and a company                                            |
 | roles, permissions, role_permissions, user_roles | Configurable access control                                                              |
-| machines                                         | The fleet register                                                                       |
+| machines | The fleet register, including Azmeel No, ownership note, compliance dates, GPS and fuel details |
+| machine_changes | Every edit to a machine, with who, when, and the old and new value |
+| customers, locations | Customers and sister companies a machine is with (with a sister company flag), and locations |
 | status_checkins                                  | Daily status per machine                                                                 |
 | severity_levels                                  | Configurable severity scale per company                                                  |
 | fault_reports, fault_attachments                 | Faults, plus the file store and path of each photo and voice note                        |
@@ -155,7 +203,7 @@ Every table carries company_id. Field level detail comes in the schema design st
 | meter_readings                                   | Hours and km readings per machine                                                        |
 | purchase_orders                                  | POs entered by hand or received from QuickBooks, linked to parts requests                |
 | integration_connections                          | Each company’s QuickBooks connection details                                             |
-| status_values                                    | Configurable daily status options per company                                            |
+| status_values | Configurable daily status options per company, each with active and requires checkin flags |
 | notifications                                    | Alerts such as the GM being told about a store issue                                     |
 | workflow_versions, workflow_stages               | Versioned stage chains per company                                                       |
 | stores                                           | Each store a company runs                                                                |
@@ -174,7 +222,7 @@ Every table carries company_id. Field level detail comes in the schema design st
 ## 8. Out of scope for the pilot
 - Voice note transcription and translation of user entered text.
 - Full offline browsing and editing.
-- Asset compliance module for Operations: registration, MVPI, insurance, third party inspections, documents and expiry dates, asset movement, condition checks, violations and accidents.
+- Asset compliance module for Operations: registration, MVPI, insurance, third party inspections, documents and expiry alerts, asset movement, condition checks, violations and accidents. The compliance fields themselves are stored and editable in the pilot (4.2); the module adds alerts and workflows later.
 - Periodic maintenance scheduling every 260 hours per machine, which needs hour meter readings, plus maintenance after demobilisation.
 - Client facing portal, possibly a separate Next.js site on the same database.
 - Replacing PO documents or finance systems.
@@ -183,7 +231,7 @@ Every table carries company_id. Field level detail comes in the schema design st
 
 1.  **Timeline.** Admin editors and inventory roughly double the pilot scope. Building in the order in section 11 means the core can be tested before everything is finished.
 
-2.  **Out of date register.** The register file is dated 17 August 2025. Machines added or moved since then will be missing or wrong at launch.
+2.  **Two copies of the register.** Until go live, Operations still keep Total_Assets.xlsx. Any change made in Excel after the import must be imported again or entered in the app, or the two copies drift apart.
 
 3.  **QuickBooks matching.** Automatic linking depends on Purchase writing the request number on every PO. Missed numbers create unmatched POs.
 
@@ -207,15 +255,17 @@ Every table carries company_id. Field level detail comes in the schema design st
 
 3.  How many stores does TCS have?
 
-4.  Is the August 2025 register the latest copy the workshop uses?
+4.  TCS tax rate for job card cost lines.
 
-5.  Sold and stolen machines: import as inactive history, or leave out?
+5.  Location capture: check consent requirements under Saudi Arabia’s Personal Data Protection Law before the pilot.
 
-6.  Should the light vehicles, attachments and Others sheets from the April 2025 file be imported as machines?
+6.  Proposed, awaiting confirmation: machines with status Sister company, no access and With Azmeel, not rentable skip the daily checkin; In TCS use machines are in it.
 
-7.  TCS tax rate for job card cost lines.
+7.  Generator Division and Generator Workshop both appear as site names. Merge them into one site, or keep them separate as typed?
 
-8.  Location capture: check consent requirements under Saudi Arabia’s Personal Data Protection Law before the pilot.
+8.  96 machines have a different plate number in Total_Assets.xlsx than in the August 2025 register. Confirm with Operations that these are real re-registrations.
+
+9.  Arabic names for the status values need review by a native speaker.
 
 ## 11. Build order (proposed)
 
@@ -223,7 +273,7 @@ Each step is finished and tested before the next starts. Translations and right 
 
 1.  **Foundation.** Companies, users, login, roles and permissions, with Row Level Security.
 
-2.  **Machines.** Machine register, imported from the cleaned asset register, and daily status checkins.
+2.  **Machines.** Machine register imported from Total_Assets.xlsx, the Operations register edit screen with its change log, and daily status checkins.
 
 3.  **Faults.** Fault reports with photos, voice notes, location and severity, then work orders.
 

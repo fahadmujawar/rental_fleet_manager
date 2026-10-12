@@ -1,4 +1,4 @@
-# Handoff: Rental Fleet Manager (as of 11 October 2026, evening)
+# Handoff: Rental Fleet Manager (as of 12 October 2026)
 
 Read this first, together with CLAUDE.md and docs/spec.md (Draft 5).
 
@@ -36,13 +36,14 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 2. 20261010193303_create_access_foundation.sql: profiles (id = auth.users id), roles (per company), permissions (global list), role_permissions, user_roles; paired (id, company_id) foreign keys so nothing crosses companies; helpers current_company_id() and has_permission(p), both requiring an active profile and an active company; RLS policies; column level grants; no deletes on profiles or roles.
 3. 20261010203251_create_machines.sql: status_values (code, name_en, name_ar, sort_order), customers, locations (names unique per company ignoring case), machines (register columns plus job card fields, chassis_no and serial_no both unique per company, plate_no not unique); permissions machines.manage and lists.manage; RLS and column level grants; no deletes.
 4. 20261011185651_create_status_checkins.sql: customers.is_sister_company; permission checkins.submit; status_checkins (one per machine per day, date window today minus 7 to today in the company timezone, checked in a trigger, not a CHECK); trigger apply_status_checkin() blocks inactive machines and statuses, locks the machine row, records who made the last change; trigger sync_machine_status() copies the status to the machine only for the newest checkin and only when status_id changes; any user with checkins.submit in the company can correct a checkin.
+5. 20261012120000_register_v2_status_and_columns.sql: status_values.requires_checkin (boolean, default true); the 15 TCS status values (idle_yard renamed to ready_in_yard, on_hire to on_hire_customer, broken_down_site to broken_down_on_site, so ids stayed; skipped if company TCS does not exist); 17 new nullable machines columns: az_no (unique per company when not null), ownership_note, project_name, istimara_serial_no, insurance_expiry, mvpi_expiry, tuv_certificate_no, tuv_certificate_expiry, operational_card_no, operational_card_expiry, mobilization_date, date_received, fuel_type, fuel_chip, gps_imei, gps_installed, gps_date. Plate No uses the existing plate_no column. Column update grants added; the existing RLS policies cover the new columns.
 
 ## Data in fleet-dev (test data, entered in the SQL Editor)
 - Company TCS ("Technical Construction Services").
 - Fahad's login (fahadmujawar002@gmail.com) with a profile in TCS.
 - Role company_admin, holding all five permissions: users.manage, roles.manage, machines.manage, lists.manage, checkins.submit. Fahad has this role.
-- Ten TCS status values with English and Arabic names (Arabic not yet checked by a native speaker).
-- Register imported 11 October 2026: 4,247 machines (787 on hire, 2,739 idle in yard, 285 under repair, 26 accident damage, 229 scrapped, 91 sold, 85 stolen, 5 missing; 410 inactive), 25 customers (13 sister companies), 22 locations. Names fixed by hand: GTI Company, MAS, Dammam-Khobar.
+- Fifteen TCS status values (list below) with English and Arabic names (Arabic not yet checked by a native speaker).
+- Register imported again 12 October 2026 from Total_Assets.xlsx: 3,767 machines (1,971 in yard needs makeup, 623 scrapped, 381 under repair, 259 on hire sister company, 212 on hire customer, 112 sister company no access, 98 ready in yard, 71 with Azmeel not rentable, 21 accident damage, 19 in TCS use; 623 inactive), 0 rejected. 480 machines from the old register that are not in the file were deleted. 24 customers (13 sister companies), 24 locations; unused old customers and locations were deleted.
 - RLS was tested: a logged in user sees only their company and profile; anon gets permission denied; deactivating the company locks the user out.
 
 ## App state (web/)
@@ -54,35 +55,50 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 1. "WORKSHOP REPAIRING" means the machine is in the workshop yard. Only some of those are actually under repair, and the August register does not say which.
 2. TCS owns every machine. "Company / Department" shows which company uses the machine now. Users are either sister companies or outside customers.
 
+## Register source (decided 12 October 2026)
+- The register comes only from data/Total_Assets.xlsx (sheet "Sheet1", header row 1), supplied by Operations. Main_Data_17-8-25.xlsx and Main_Data_April_30_2025.xlsx are no longer used. The data folder is git ignored.
+- From now on Operations edits the register in the app. That screen is not built yet. Until then, a new copy of the file can be imported with the script.
+- TCS owns every machine. OwnerShip (Azmeel, Ajel, Orix and others) is stored as ownership_note, information only.
+
+## TCS status values (code, English, active, requires checkin)
+| # | code | English | Arabic | active | checkin |
+|---|---|---|---|---|---|
+| 1 | ready_in_yard | Ready in yard | جاهز في الساحة | yes | yes |
+| 2 | in_yard_makeup | In yard needs makeup | في الساحة بحاجة إلى تجهيز | yes | yes |
+| 3 | under_repair | Under repair | قيد الإصلاح | yes | yes |
+| 4 | awaiting_repair | Awaiting repair | بانتظار الإصلاح | yes | yes |
+| 5 | accident_damage | Accident damage | متضرر بحادث | yes | yes |
+| 6 | broken_down_on_site | Broken down on site | معطل في الموقع | yes | yes |
+| 7 | on_hire_customer | On hire customer | مؤجر لعميل | yes | yes |
+| 8 | on_hire_sister | On hire sister company | مؤجر لشركة شقيقة | yes | yes |
+| 9 | sister_no_access | Sister company no access | لدى شركة شقيقة بدون وصول | yes | no |
+| 10 | azmeel_private | With Azmeel not rentable | لدى أزميل غير متاح للتأجير | yes | no |
+| 11 | in_tcs_use | In TCS use | قيد استخدام TCS | yes | yes |
+| 12 | scrapped | Scrapped | خردة | no | no |
+| 13 | sold | Sold | مباع | no | no |
+| 14 | stolen | Stolen | مسروق | no | no |
+| 15 | missing | Missing | مفقود | no | no |
+
+The Arabic for rows 1, 2, 7, 8, 9, 10 and 11 was written on 12 October 2026 and needs a native speaker review. requires_checkin is stored but not yet used by any screen or trigger.
+
 ## Import script (done)
-- scripts/import_register/import_register.py, with its own .venv and a .env holding DATABASE_URL (session pooler, eu-central-1; both git ignored). Dry run by default; --apply writes in one transaction. Rerunnable: a second run gave 0 inserts and 4,247 updates. Machines that have checkins keep their status and active flag on rerun.
-- Run from scripts/import_register: .\.venv\Scripts\python.exe import_register.py [--apply]
-- Report: data/import_report.csv, plus a permanent copy data/import_report_2026-10-11.csv. Removed on import: 261 capacities that were not single numbers (for example 2-/24/26, 6x4), 14 unreadable chassis numbers, 3 duplicate chassis numbers on 6 machines (WT0014, 135653V, MB460085E).
-- Customers to confirm with the team (imported as outside customers): Amaco, Arkad Camp (probably Arkad), Bin Quraya, Denys Arabia, Engineering Box Co, Samama Company.
-- Claude Code's sandbox blocks Python network access; run the script in your own terminal. Claude Code also has a Supabase connector that can run SQL on fleet-dev; do not give it write access to the live project.
+- scripts/import_register/import_register.py, with its own .venv and a .env holding DATABASE_URL (session pooler, eu-central-1; both git ignored). Dry run by default; --apply writes in one transaction; --apply stops if the expected counts do not match, unless --force. Rerunnable: a second run gave 0 inserts, 3,767 updates, 0 deletes.
+- Run from scripts/import_register: .\.venv\Scripts\python.exe import_register.py [--apply] [--force]
+- Rules: see scripts/import_register/README.md. Status comes from 13 ordered rules on TCS No, Rent-Description, Site and Status. TCS machines not in the file, and customers and locations no machine uses, are deleted. Customer is_sister_company is the majority of its machines' Rent-Description.
+- Report: data/import_report.csv. Removed on the 12 October import: 259 capacities that were not single numbers, 14 unreadable chassis numbers, 1 unreadable serial number, 2 duplicate chassis numbers on 4 machines, 6 values in date columns that were not real dates. 375 chassis values moved to serial_no.
+- Locations to check with Operations: Jaffurah and Jafurah are both in the file (probably one place).
+- Claude Code also has a Supabase connector that can run SQL on fleet-dev; do not give it write access to the live project.
 
-## Decided for the import
-- Source: Main_Data_17-8-25.xlsx (sheet "MAIN DATA ", 4,247 assets, the layout the job card reads). Not in the repo. Ask the workshop for a newer copy before the real import.
-- Sold, stolen and missing machines are imported as inactive history.
-- Starting statuses come from the April 2025 file's Rent-Description, matched by asset number: "Major Breakdown" becomes Under repair, "Yard" becomes Idle in yard. Machines not in the April file become Idle in yard. The first daily checkins correct anything that changed.
-- Every Company / Department name except TCS becomes a customer. Sister companies (from the April file): AZMEEL, ARKAD, ARFAD, Drilling Works, MAS, Electrical Solutions, Hexagon, Within, GTI Company, Evision Company, Hayakel, Saudi Widcon, Al Arabi. Outside customers: Saraya Alandalus, Ahak Company, Jadwal, Alshawaf, AIC Steel, Harby, Copasa, Al Hammash, Rely, Unified Solution, Shine, Synopc, Kalpataru. The customers table needs an is_sister_company flag (new migration).
-- Status values for TCS: Working on hire, Idle in yard, Under repair, Awaiting repair, Broken down on site, Scrapped, plus Sold, Stolen, Missing and Accident damage. Must exist before machines are imported, because status_id is required.
-
-## Known data problems the import must handle
-- asset_no 11.02.0001 uses dots: convert to 11-02-0001.
-- Chassis column holds serial numbers for equipment, written "S/NO. ..." or "S.NO. ...": move to serial_no with the prefix removed. Placeholders N/A (5) and bare S/NO. (3) become empty.
-- Duplicate chassis numbers WT0014 and 135653V: check with the team.
+## Known data problems
 - About 250 plate numbers repeat: review separately.
-- Mixed case and trailing spaces in Company / Department and Location (Tcs, tCS, "Bin Quraya ", RIYADH and Riyadh): normalise.
-- Site mixes conditions (WORKSHOP REPAIRING, SCRAP IN YARD, SOLD, STOLEN, ACCIDENT, Missing, STANDBY) with real sites and client names: conditions become statuses, the rest become site text or customers.
-- 186 assets have no location, 212 no year, and some years are "#N/A": import as empty.
-- Earlier light vehicles, attachments and Others sheets exist only in the April 2025 file; import decision still open.
+- Sites keep the value as typed, including client names and ACCIDENT. WORKSHOP REPAIRING and SCRAP IN YARD give no site text.
 
 ## Next steps, in order
-1. Commit and push scripts/import_register (not .env, .venv or data).
-2. App: machine list and daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
-3. Have an Arabic speaker check the status names; confirm the six customers above.
-4. Build step 3: fault reports and work orders (job cards).
+1. Replace docs/spec.md with Draft 6 (Fahad).
+2. Commit and push the migration, scripts/import_register and docs (not .env, .venv or data).
+3. App: machine list, register edit screen for Operations, and daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
+4. Have an Arabic speaker check the status names.
+5. Build step 3: fault reports and work orders (job cards).
 
 ## Open questions from the spec (section 10)
 Storage approach confirmation, TCS stock count, number of TCS stores, latest register copy, sold and stolen import (decided: inactive), extra April sheets, TCS tax rate for job cards, location consent under Saudi PDPL.
