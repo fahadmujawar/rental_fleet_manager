@@ -38,18 +38,36 @@ A multi company fleet operations web app for equipment rental companies. TCS (Te
 4. 20261011185651_create_status_checkins.sql: customers.is_sister_company; permission checkins.submit; status_checkins (one per machine per day, date window today minus 7 to today in the company timezone, checked in a trigger, not a CHECK); trigger apply_status_checkin() blocks inactive machines and statuses, locks the machine row, records who made the last change; trigger sync_machine_status() copies the status to the machine only for the newest checkin and only when status_id changes; any user with checkins.submit in the company can correct a checkin.
 5. 20261012120000_register_v2_status_and_columns.sql: status_values.requires_checkin (boolean, default true); the 15 TCS status values (idle_yard renamed to ready_in_yard, on_hire to on_hire_customer, broken_down_site to broken_down_on_site, so ids stayed; skipped if company TCS does not exist); 17 new nullable machines columns: az_no (unique per company when not null), ownership_note, project_name, istimara_serial_no, insurance_expiry, mvpi_expiry, tuv_certificate_no, tuv_certificate_expiry, operational_card_no, operational_card_expiry, mobilization_date, date_received, fuel_type, fuel_chip, gps_imei, gps_installed, gps_date. Plate No uses the existing plate_no column. Column update grants added; the existing RLS policies cover the new columns.
 
+6. 20261012130000_machines_az_no_number.sql: machines.az_no_number, a stored generated bigint from az_no (only when az_no is 1 to 18 digits), used only to sort Az No in number order. No new grant or policy.
+
 ## Data in fleet-dev (test data, entered in the SQL Editor)
 - Company TCS ("Technical Construction Services").
 - Fahad's login (fahadmujawar002@gmail.com) with a profile in TCS.
 - Role company_admin, holding all five permissions: users.manage, roles.manage, machines.manage, lists.manage, checkins.submit. Fahad has this role.
 - Fifteen TCS status values (list below) with English and Arabic names (Arabic not yet checked by a native speaker).
-- Register imported again 12 October 2026 from Total_Assets.xlsx: 3,767 machines (1,971 in yard needs makeup, 623 scrapped, 381 under repair, 259 on hire sister company, 212 on hire customer, 112 sister company no access, 98 ready in yard, 71 with Azmeel not rentable, 21 accident damage, 19 in TCS use; 623 inactive), 0 rejected. 480 machines from the old register that are not in the file were deleted. 24 customers (13 sister companies), 24 locations; unused old customers and locations were deleted.
+- Register imported again 12 October 2026 from Total_Assets.xlsx (last run after the case rule was added: 1 value changed, "Drilling Equipment" to "DRILLING EQUIPMENT" on 11-02-0001; now 13 main categories): 3,767 machines (1,971 in yard needs makeup, 623 scrapped, 381 under repair, 259 on hire sister company, 212 on hire customer, 112 sister company no access, 98 ready in yard, 71 with Azmeel not rentable, 21 accident damage, 19 in TCS use; 623 inactive), 0 rejected. 480 machines from the old register that are not in the file were deleted. 24 customers (13 sister companies), 24 locations; unused old customers and locations were deleted.
 - RLS was tested: a logged in user sees only their company and profile; anon gets permission denied; deactivating the company locks the user out.
 
 ## App state (web/)
 - Login page and protected home page showing the user's name and company through RLS.
 - react-i18next with English and Arabic (src/locales), dir="rtl" for Arabic, Tailwind logical classes only, React Router, single Supabase client in src/lib/supabase.ts.
-- All seven manual tests passed. Bundle size warning (about 530 kB) is known and ignored for now.
+- All seven manual tests passed. Bundle size warning (about 556 kB) is known and ignored for now.
+- Read only machine register (12 October 2026; manual tests pending):
+  - /machines: server side paging (50 rows, exact count), search on TCS No, Az No, plate, chassis, serial and description (300 ms delay, PostgREST or() with escaped values), filters Status, Main Category, Company/Department, Location, Show inactive. All list state is in the URL query string. Table at 768 px and wider (scrolls sideways in its own box when needed), cards below. Picking an inactive status also turns on Show inactive.
+  - List fields, chosen by Operations, in this order: Az No, TCS No, Sub Category 2, Type, Description, Company/Department, Ownership, Location, Site, Chassis No, Plate No, then Status (Fahad). Manufacturing Name was removed from the list on request; it shows on the detail page. Company/Department shows the company short code (TCS) when a machine has no customer.
+  - Sort: Az No (number order through az_no_number; other values after the numbers), TCS No (default), Plate No, Company/Department, Status (status sort_order). Empty values come last in both directions; TCS No is always the last sort key.
+  - /machines/:id: Identification, Specification, Assignment, Compliance (Expired / Expires soon labels, today in the company time zone), Other, Latest checkin. "Machine not found" for an unknown id, a malformed id or a row RLS hides.
+  - Code: src/machines (types, queries), src/lib (format, search, uuid), src/components (AppHeader, CompanyDepartment, LtrValue, SisterBadge), src/pages (MachineListPage, MachineDetailPage). No edit buttons anywhere.
+  - Known limits: the Main Category list is read from machines in chunks of 1,000 rows (main_category is text, not a list table); a view can replace this later. A typed * in the search matches any one character (PostgREST treats * as a wildcard).
+
+## Who can write machines (checked 12 October 2026 against migrations and fleet-dev)
+- Insert: an authenticated user with an active profile in an active company who holds an active role with the active permission machines.manage, and only rows with their own company_id. Today only role company_admin (1 user, Fahad).
+- Update: the same condition for the old and the new row, and only the granted columns (not id, company_id, created_at, updated_at). Indirect: the security definer trigger sync_machine_status() changes machines.status_id when a user with checkins.submit saves the newest checkin for a machine (today also only company_admin).
+- Delete: nobody through the app (no delete grant, no delete policy). anon has no grants. Only the database owner connection (the import script) bypasses RLS.
+
+## Arabic interface strings to review (machine register, written 12 October 2026)
+Field labels: رقم TCS، رقم أزميل، الوصف، الفئة الرئيسية، الفئة الفرعية، الفئة الفرعية 2، النوع، الطراز، السعة، سنة الصنع، الحالة، الشركة/القسم (Company/Department)، اسم الشركة المصنعة (Manufacturing Name)، الملكية (Ownership)، الموقع (Site)، المنطقة (Location)، اسم المشروع، رقم الشاسيه، الرقم التسلسلي، رقم اللوحة، الرقم التسلسلي للاستمارة، انتهاء التأمين، انتهاء الفحص الدوري (MVPI)، رقم شهادة TUV، انتهاء شهادة TUV، رقم بطاقة التشغيل، انتهاء بطاقة التشغيل، انتهاء الاستمارة، نوع الوقود، شريحة الوقود، جهاز GPS مركّب، رقم IMEI لجهاز GPS، تاريخ GPS، تاريخ التحريك، تاريخ الاستلام.
+Other: غير محدد، نعم، لا، إعادة المحاولة، رجوع، الرئيسية، شركة شقيقة، القائمة الرئيسية، سجل المعدات، بحث، (search hint) رقم TCS أو رقم أزميل أو اللوحة أو الشاسيه أو الرقم التسلسلي أو الوصف، الكل، إظهار غير النشطة، الترتيب، الترتيب حسب {{column}}، {{column}}، تصاعدي، {{column}}، تنازلي، {{from}} إلى {{to}} من {{total}}، السابق، التالي، لا توجد معدات مطابقة، تعذّر تحميل المعدات.، التعريف، المواصفات، التخصيص، الامتثال، أخرى، آخر تسجيل حالة، منتهي، ينتهي قريبًا، التاريخ، أرسله، لا توجد تسجيلات حالة بعد، المعدة غير موجودة، العودة إلى قائمة المعدات، تعذّر تحميل المعدة.
 
 ## Answered by Fahad (11 October 2026)
 1. "WORKSHOP REPAIRING" means the machine is in the workshop yard. Only some of those are actually under repair, and the August register does not say which.
@@ -85,6 +103,7 @@ The Arabic for rows 1, 2, 7, 8, 9, 10 and 11 was written on 12 October 2026 and 
 - scripts/import_register/import_register.py, with its own .venv and a .env holding DATABASE_URL (session pooler, eu-central-1; both git ignored). Dry run by default; --apply writes in one transaction; --apply stops if the expected counts do not match, unless --force. Rerunnable: a second run gave 0 inserts, 3,767 updates, 0 deletes.
 - Run from scripts/import_register: .\.venv\Scripts\python.exe import_register.py [--apply] [--force]
 - Rules: see scripts/import_register/README.md. Status comes from 13 ordered rules on TCS No, Rent-Description, Site and Status. TCS machines not in the file, and customers and locations no machine uses, are deleted. Customer is_sister_company is the majority of its machines' Rent-Description.
+- Main Category, Sub Category, Sub Category 2 and Type: values that differ only in case become one value, the spelling most used in the file (first seen on a tie), the same method as customer names (report reason case_unified).
 - Report: data/import_report.csv. Removed on the 12 October import: 259 capacities that were not single numbers, 14 unreadable chassis numbers, 1 unreadable serial number, 2 duplicate chassis numbers on 4 machines, 6 values in date columns that were not real dates. 375 chassis values moved to serial_no.
 - Locations to check with Operations: Jaffurah and Jafurah are both in the file (probably one place).
 - Claude Code also has a Supabase connector that can run SQL on fleet-dev; do not give it write access to the live project.
@@ -96,7 +115,7 @@ The Arabic for rows 1, 2, 7, 8, 9, 10 and 11 was written on 12 October 2026 and 
 ## Next steps, in order
 1. Replace docs/spec.md with Draft 6 (Fahad).
 2. Commit and push the migration, scripts/import_register and docs (not .env, .venv or data).
-3. App: machine list, register edit screen for Operations, and daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
+3. App: run the manual tests for the read only machine register; then the register edit screen for Operations (with machine_changes), and the daily checkin screen (finishes build step 2). Needs a Supervisor role with checkins.submit.
 4. Have an Arabic speaker check the status names.
 5. Build step 3: fault reports and work orders (job cards).
 

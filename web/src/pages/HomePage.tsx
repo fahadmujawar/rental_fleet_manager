@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { LanguageSwitcher } from '../components/LanguageSwitcher'
+import { AppHeader } from '../components/AppHeader'
 import { supabase } from '../lib/supabase'
 
 type HomeState =
@@ -56,16 +57,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="flex items-center justify-between gap-4 p-4">
-        <LanguageSwitcher />
-        <button
-          type="button"
-          onClick={() => supabase.auth.signOut()}
-          className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700"
-        >
-          {t('home.logout')}
-        </button>
-      </header>
+      <AppHeader />
 
       <main className="mx-auto mt-12 max-w-2xl px-4 text-start">
         {state.status === 'loading' && <p className="text-gray-600">{t('app.loading')}</p>}
@@ -80,6 +72,15 @@ export function HomePage() {
           <>
             <h1 className="text-2xl font-semibold text-gray-900">{t('home.welcome', { name: state.fullName })}</h1>
             <p className="mt-2 text-gray-700">{t('home.company', { name: state.companyName })}</p>
+            <nav aria-label={t('home.nav.label')} className="mt-8">
+              <ul className="space-y-2">
+                <li>
+                  <Link to="/machines" className="text-blue-700 underline">
+                    {t('home.nav.machines')}
+                  </Link>
+                </li>
+              </ul>
+            </nav>
           </>
         )}
       </main>

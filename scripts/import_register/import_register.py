@@ -491,6 +491,21 @@ def null_duplicates(machines, field, report):
             machine[field] = None
 
 
+def unify_case(machines, field, report):
+    """Values that differ only in case become one value: the most used spelling, first seen on a tie."""
+    spellings = {}
+    for machine in machines:
+        value = machine[field]
+        if value is not None:
+            spellings.setdefault(value.lower(), Counter())[value] += 1
+    chosen = {key: names.most_common(1)[0][0] for key, names in spellings.items()}
+    for machine in machines:
+        value = machine[field]
+        if value is not None and value != chosen[value.lower()]:
+            report.add(machine["asset_no"], field, value, chosen[value.lower()], "case_unified")
+            machine[field] = chosen[value.lower()]
+
+
 def plan_customers(machines, state, report):
     """Customer names, sister flags, and what to create, rename or delete."""
     spellings, votes = {}, {}
@@ -564,6 +579,8 @@ def build_plan(state, report):
 
     for field in ("chassis_no", "serial_no", "az_no"):
         null_duplicates(machines, field, report)
+    for field in ("main_category", "sub_category", "sub_category_2", "asset_type"):
+        unify_case(machines, field, report)
 
     # Machines in the database that are not in the file are deleted. A checkin blocks that.
     to_delete = sorted(a for a in state["machines"] if a not in in_file)

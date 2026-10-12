@@ -55,6 +55,9 @@ to write anyway. You can run the script again: machines are matched on asset_no 
 - A machine that already has status checkins keeps its status (reason `has_checkins`).
 - A chassis, serial or Az No used by more than one machine is removed from all of them
   (reason `duplicate_chassis_no`, `duplicate_serial_no` or `duplicate_az_no`). Enter the correct one in the app.
+- Main Category, Sub Category, Sub Category 2 and Type: values that differ only in case become one
+  value, the spelling most used in the file (first seen on a tie), the same method as customer names
+  (reason `case_unified`).
 - An asset number used on more than one row rejects all of those rows (reason `duplicate_asset_no`).
 - Columns that are not in the register (old asset no, engine number, colour, Isthimara expiry,
   warranty expiry) are not changed.

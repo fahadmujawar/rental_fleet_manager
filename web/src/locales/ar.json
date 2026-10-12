@@ -3,6 +3,15 @@
     "title": "مدير الأسطول",
     "loading": "جارٍ التحميل…"
   },
+  "common": {
+    "notSet": "غير محدد",
+    "yes": "نعم",
+    "no": "لا",
+    "retry": "إعادة المحاولة",
+    "back": "رجوع",
+    "home": "الرئيسية",
+    "sisterCompany": "شركة شقيقة"
+  },
   "language": {
     "label": "اللغة",
     "en": "English",
@@ -23,9 +32,88 @@
     "welcome": "مرحبًا، {{name}}",
     "company": "الشركة: {{name}}",
     "logout": "تسجيل الخروج",
+    "nav": {
+      "label": "القائمة الرئيسية",
+      "machines": "سجل المعدات"
+    },
     "errors": {
       "profile": "تعذّر تحميل ملفك الشخصي. يرجى التواصل مع المسؤول.",
       "company": "تعذّر تحميل بيانات شركتك. يرجى التواصل مع المسؤول."
+    }
+  },
+  "machines": {
+    "fields": {
+      "assetNo": "رقم TCS",
+      "azNo": "رقم أزميل",
+      "description": "الوصف",
+      "mainCategory": "الفئة الرئيسية",
+      "subCategory": "الفئة الفرعية",
+      "subCategory2": "الفئة الفرعية 2",
+      "type": "النوع",
+      "manufacturer": "اسم الشركة المصنعة",
+      "model": "الطراز",
+      "capacity": "السعة",
+      "mfgYear": "سنة الصنع",
+      "status": "الحالة",
+      "customer": "الشركة/القسم",
+      "site": "الموقع",
+      "location": "المنطقة",
+      "projectName": "اسم المشروع",
+      "chassisNo": "رقم الشاسيه",
+      "serialNo": "الرقم التسلسلي",
+      "plateNo": "رقم اللوحة",
+      "istimaraSerialNo": "الرقم التسلسلي للاستمارة",
+      "insuranceExpiry": "انتهاء التأمين",
+      "mvpiExpiry": "انتهاء الفحص الدوري (MVPI)",
+      "tuvCertificateNo": "رقم شهادة TUV",
+      "tuvCertificateExpiry": "انتهاء شهادة TUV",
+      "operationalCardNo": "رقم بطاقة التشغيل",
+      "operationalCardExpiry": "انتهاء بطاقة التشغيل",
+      "isthimaraExpiry": "انتهاء الاستمارة",
+      "fuelType": "نوع الوقود",
+      "fuelChip": "شريحة الوقود",
+      "gpsInstalled": "جهاز GPS مركّب",
+      "gpsImei": "رقم IMEI لجهاز GPS",
+      "gpsDate": "تاريخ GPS",
+      "mobilizationDate": "تاريخ التحريك",
+      "dateReceived": "تاريخ الاستلام",
+      "ownershipNote": "الملكية"
+    },
+    "list": {
+      "title": "سجل المعدات",
+      "search": "بحث",
+      "searchHint": "رقم TCS أو رقم أزميل أو اللوحة أو الشاسيه أو الرقم التسلسلي أو الوصف",
+      "all": "الكل",
+      "showInactive": "إظهار غير النشطة",
+      "sort": "الترتيب",
+      "sortBy": "الترتيب حسب {{column}}",
+      "sortOption": {
+        "asc": "{{column}}، تصاعدي",
+        "desc": "{{column}}، تنازلي"
+      },
+      "count": "{{from}} إلى {{to}} من {{total}}",
+      "previous": "السابق",
+      "next": "التالي",
+      "empty": "لا توجد معدات مطابقة",
+      "error": "تعذّر تحميل المعدات."
+    },
+    "detail": {
+      "sections": {
+        "identification": "التعريف",
+        "specification": "المواصفات",
+        "assignment": "التخصيص",
+        "compliance": "الامتثال",
+        "other": "أخرى",
+        "latestCheckin": "آخر تسجيل حالة"
+      },
+      "expired": "منتهي",
+      "expiresSoon": "ينتهي قريبًا",
+      "checkinDate": "التاريخ",
+      "submittedBy": "أرسله",
+      "noCheckins": "لا توجد تسجيلات حالة بعد",
+      "notFound": "المعدة غير موجودة",
+      "backToList": "العودة إلى قائمة المعدات",
+      "error": "تعذّر تحميل المعدة."
     }
   }
 }

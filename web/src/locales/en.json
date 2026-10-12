@@ -3,6 +3,15 @@
     "title": "Fleet Manager",
     "loading": "Loading…"
   },
+  "common": {
+    "notSet": "Not set",
+    "yes": "Yes",
+    "no": "No",
+    "retry": "Retry",
+    "back": "Back",
+    "home": "Home",
+    "sisterCompany": "Sister company"
+  },
   "language": {
     "label": "Language",
     "en": "English",
@@ -23,9 +32,88 @@
     "welcome": "Welcome, {{name}}",
     "company": "Company: {{name}}",
     "logout": "Log out",
+    "nav": {
+      "label": "Main menu",
+      "machines": "Machine register"
+    },
     "errors": {
       "profile": "Your profile could not be loaded. Please contact your administrator.",
       "company": "Your company could not be loaded. Please contact your administrator."
+    }
+  },
+  "machines": {
+    "fields": {
+      "assetNo": "TCS No",
+      "azNo": "Az No",
+      "description": "Description",
+      "mainCategory": "Main Category",
+      "subCategory": "Sub Category",
+      "subCategory2": "Sub Category 2",
+      "type": "Type",
+      "manufacturer": "Manufacturing Name",
+      "model": "Model",
+      "capacity": "Capacity",
+      "mfgYear": "Mfg Year",
+      "status": "Status",
+      "customer": "Company/Department",
+      "site": "Site",
+      "location": "Location",
+      "projectName": "Project name",
+      "chassisNo": "Chassis No",
+      "serialNo": "Serial No",
+      "plateNo": "Plate No",
+      "istimaraSerialNo": "Istimara serial No",
+      "insuranceExpiry": "Insurance expiry",
+      "mvpiExpiry": "MVPI expiry",
+      "tuvCertificateNo": "TUV certificate No",
+      "tuvCertificateExpiry": "TUV certificate expiry",
+      "operationalCardNo": "Operational card No",
+      "operationalCardExpiry": "Operational card expiry",
+      "isthimaraExpiry": "Isthimara expiry",
+      "fuelType": "Fuel type",
+      "fuelChip": "Fuel chip",
+      "gpsInstalled": "GPS installed",
+      "gpsImei": "GPS IMEI",
+      "gpsDate": "GPS date",
+      "mobilizationDate": "Mobilisation date",
+      "dateReceived": "Date received",
+      "ownershipNote": "Ownership"
+    },
+    "list": {
+      "title": "Machine register",
+      "search": "Search",
+      "searchHint": "TCS No, Az No, plate, chassis, serial or description",
+      "all": "All",
+      "showInactive": "Show inactive",
+      "sort": "Sort",
+      "sortBy": "Sort by {{column}}",
+      "sortOption": {
+        "asc": "{{column}}, ascending",
+        "desc": "{{column}}, descending"
+      },
+      "count": "{{from}} to {{to}} of {{total}}",
+      "previous": "Previous",
+      "next": "Next",
+      "empty": "No machines match",
+      "error": "The machines could not be loaded."
+    },
+    "detail": {
+      "sections": {
+        "identification": "Identification",
+        "specification": "Specification",
+        "assignment": "Assignment",
+        "compliance": "Compliance",
+        "other": "Other",
+        "latestCheckin": "Latest checkin"
+      },
+      "expired": "Expired",
+      "expiresSoon": "Expires soon",
+      "checkinDate": "Date",
+      "submittedBy": "Submitted by",
+      "noCheckins": "No checkins yet",
+      "notFound": "Machine not found",
+      "backToList": "Back to the machine list",
+      "error": "The machine could not be loaded."
     }
   }
 }
